@@ -34,6 +34,13 @@ export const Expenses: React.FC = () => {
   const { householdId, user } = useAuth();
   const { showToast } = useToast();
 
+  const getReceiptUrl = (url: string | null | undefined) => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    return `${baseUrl}${url}`;
+  };
+
   // Filters & State
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -541,11 +548,11 @@ export const Expenses: React.FC = () => {
               <div>
                 <h4 className="font-bold text-xs text-gray-500 uppercase tracking-wider mb-2">Attached Receipt</h4>
                 <div
-                  onClick={() => setLightboxUrl(selectedExpense.receiptUrl)}
+                  onClick={() => setLightboxUrl(getReceiptUrl(selectedExpense.receiptUrl))}
                   className="group relative cursor-pointer overflow-hidden rounded-lg border border-gray-200 dark:border-gray-800 h-28 flex items-center justify-center bg-gray-50 dark:bg-gray-900 hover:brightness-95 transition-all"
                 >
                   <img
-                    src={selectedExpense.receiptUrl}
+                    src={getReceiptUrl(selectedExpense.receiptUrl)}
                     alt="Receipt preview"
                     className="h-full object-contain"
                   />
