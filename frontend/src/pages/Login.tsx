@@ -35,7 +35,7 @@ export const Login: React.FC = () => {
     const google = (window as any).google;
     if (!google) return;
 
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'your-google-client-id.apps.googleusercontent.com';
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '513420171741-jqk0hv9hh6i2gubura59edndq6dm7f48.apps.googleusercontent.com';
 
     google.accounts.id.initialize({
       client_id: clientId,
