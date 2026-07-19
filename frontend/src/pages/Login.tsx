@@ -42,16 +42,21 @@ export const Login: React.FC = () => {
       callback: handleGoogleCredentialResponse,
     });
 
-    google.accounts.id.renderButton(
-      document.getElementById('google-signin-btn'),
-      { 
-        theme: 'outline', 
-        size: 'large', 
-        width: '100%', 
-        text: 'signin_with',
-        shape: 'rectangular'
-      }
-    );
+    const container = document.getElementById('google-signin-btn');
+    if (container) {
+      // Get the actual width of the input fields to render a full-width Google button
+      const btnWidth = container.offsetWidth > 0 ? container.offsetWidth : 380;
+      google.accounts.id.renderButton(
+        container,
+        { 
+          theme: 'outline', 
+          size: 'large', 
+          width: btnWidth, 
+          text: 'signin_with',
+          shape: 'rectangular'
+        }
+      );
+    }
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
