@@ -6,21 +6,46 @@ const prisma = new PrismaClient();
 
 export class AnalyticsService {
   static async getDashboardStats(householdId: number, userId: number) {
-    // 1. Fetch household members count
-    const memberCount = await prisma.member.count({
-      where: { householdId, status: MemberStatus.ACTIVE },
-    });
-
-    // 2. Fetch all approved expenses
-    const approvedExpenses = await prisma.expense.findMany({
-      where: { householdId, status: ExpenseStatus.APPROVED },
-      include: { category: true, paidBy: true, participants: true },
-    });
+    // Fetch all independent stats concurrently in parallel
+    const [
+      memberCount,
+      approvedExpenses,
+      recentExpenses,
+      upcomingRecurringBills,
+      pendingSettlements,
+      activityLogs,
+      balances
+    ] = await Promise.all([
+      prisma.member.count({
+        where: { householdId, status: MemberStatus.ACTIVE },
+      }),
+      prisma.expense.findMany({
+        where: { householdId, status: ExpenseStatus.APPROVED },
+        include: { category: true, paidBy: true, participants: true },
+      }),
+      prisma.expense.findMany({
+        where: { householdId },
+        include: {
+          category: true,
+          paidBy: { select: { name: true, avatar: true } },
+        },
+        orderBy: { date: 'desc' },
+        take: 5,
+      }),
+      prisma.recurringExpense.findMany({
+        where: { householdId, isActive: true },
+        include: { category: true },
+        orderBy: { nextDueDate: 'asc' },
+        take: 5,
+      }),
+      SettlementService.getSettlementSuggestions(householdId),
+      ActivityService.getLogs(householdId, 20),
+      SettlementService.calculateBalances(householdId),
+    ]);
 
     const totalHouseholdExpenses = approvedExpenses.reduce((sum, exp) => sum + exp.amount, 0);
 
-    // 3. User specific stats: Total Paid, Total Owed, Net Balance
-    const balances = await SettlementService.calculateBalances(householdId);
+    // User specific stats: Total Paid, Total Owed, Net Balance
     const userBalance = balances.find((b) => b.id === userId);
     
     // Total paid by user
@@ -109,30 +134,7 @@ export class AnalyticsService {
     const activeMonths = Object.keys(monthlyTrendMap).length || 1;
     const averageMonthlySpending = Number((totalHouseholdExpenses / activeMonths).toFixed(2));
 
-    // 8. Recent expenses (Limit 5)
-    const recentExpenses = await prisma.expense.findMany({
-      where: { householdId },
-      include: {
-        category: true,
-        paidBy: { select: { name: true, avatar: true } },
-      },
-      orderBy: { date: 'desc' },
-      take: 5,
-    });
 
-    // 9. Upcoming recurring bills (Limit 5)
-    const upcomingRecurringBills = await prisma.recurringExpense.findMany({
-      where: { householdId, isActive: true },
-      include: { category: true },
-      orderBy: { nextDueDate: 'asc' },
-      take: 5,
-    });
-
-    // 10. Pending settlements summary
-    const pendingSettlements = await SettlementService.getSettlementSuggestions(householdId);
-
-    // 11. Fetch activity logs for audit logs view
-    const activityLogs = await ActivityService.getLogs(householdId, 20);
 
     // Current month expenses
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
