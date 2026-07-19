@@ -1,0 +1,241 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  OWNER
+  MEMBER
+}
+
+enum MemberStatus {
+  ACTIVE
+  PENDING
+}
+
+enum ExpenseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum RecurrenceInterval {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum SettlementStatus {
+  PENDING
+  COMPLETED
+}
+
+model User {
+  id                  Int                  @id @default(autoincrement())
+  email               String               @unique
+  passwordHash        String
+  name                String
+  avatar              String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  
+  members             Member[]
+  ownedHouseholds     Household[]          @relation("HouseholdOwner")
+  paidExpenses        Expense[]            @relation("ExpensePaidBy")
+  splits              ExpenseParticipant[]
+  sentSettlements     Settlement[]         @relation("SettlementFromUser")
+  receivedSettlements Settlement[]         @relation("SettlementToUser")
+  refreshTokens       RefreshToken[]
+  notifications       Notification[]
+  activityLogs        ActivityLog[]
+  sentInvites         Invite[]             @relation("InviteSender")
+  expenseApprovals    ExpenseApproval[]
+  paidRecurring       RecurringExpense[]   @relation("RecurringPaidBy")
+}
+
+model Household {
+  id                Int                @id @default(autoincrement())
+  name              String
+  inviteCode        String             @unique
+  ownerId           Int
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  owner             User               @relation("HouseholdOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members           Member[]
+  expenses          Expense[]
+  settlements       Settlement[]
+  activityLogs      ActivityLog[]
+  recurringExpenses RecurringExpense[]
+  invites           Invite[]
+}
+
+model Member {
+  id          Int          @id @default(autoincrement())
+  userId      Int
+  householdId Int
+  role        Role         @default(MEMBER)
+  status      MemberStatus @default(PENDING)
+  joinedAt    DateTime     @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  household   Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, householdId])
+}
+
+model Category {
+  id                Int                @id @default(autoincrement())
+  name              String             @unique
+  expenses          Expense[]
+  recurringExpenses RecurringExpense[]
+}
+
+model Expense {
+  id                 Int                  @id @default(autoincrement())
+  title              String
+  description        String?              @db.Text
+  amount             Float
+  categoryId         Int
+  date               DateTime
+  paidById           Int
+  householdId        Int
+  receiptUrl         String?
+  notes              String?              @db.Text
+  status             ExpenseStatus        @default(PENDING)
+  recurringExpenseId Int?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  category          Category             @relation(fields: [categoryId], references: [id])
+  paidBy            User                 @relation("ExpensePaidBy", fields: [paidById], references: [id])
+  household         Household            @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  participants      ExpenseParticipant[]
+  approvals         ExpenseApproval[]
+  recurringExpense  RecurringExpense?    @relation(fields: [recurringExpenseId], references: [id], onDelete: SetNull)
+}
+
+model ExpenseParticipant {
+  id              Int      @id @default(autoincrement())
+  expenseId       Int
+  userId          Int
+  amountOwed      Float
+  sharePercentage Float?
+  shareAmount     Float?
+
+  expense         Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([expenseId, userId])
+}
+
+model ExpenseApproval {
+  id        Int            @id @default(autoincrement())
+  expenseId Int
+  userId    Int
+  status    ApprovalStatus @default(PENDING)
+  updatedAt DateTime       @updatedAt
+
+  expense   Expense        @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([expenseId, userId])
+}
+
+model RecurringExpense {
+  id           Int                @id @default(autoincrement())
+  householdId  Int
+  title        String
+  description  String?            @db.Text
+  amount       Float
+  categoryId   Int
+  paidById     Int
+  interval     RecurrenceInterval
+  startDate    DateTime
+  nextDueDate  DateTime
+  isActive     Boolean            @default(true)
+  createdAt    DateTime           @default(now())
+
+  household    Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  category     Category           @relation(fields: [categoryId], references: [id])
+  paidBy       User               @relation("RecurringPaidBy", fields: [paidById], references: [id])
+  expenses     Expense[]
+}
+
+model Invite {
+  id           Int          @id @default(autoincrement())
+  householdId  Int
+  email        String
+  code         String       @unique
+  invitedById  Int
+  status       InviteStatus @default(PENDING)
+  createdAt    DateTime     @default(now())
+
+  household    Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  invitedBy    User         @relation("InviteSender", fields: [invitedById], references: [id], onDelete: Cascade)
+}
+
+model Settlement {
+  id          Int              @id @default(autoincrement())
+  householdId Int
+  fromUserId  Int
+  toUserId    Int
+  amount      Float
+  status      SettlementStatus @default(PENDING)
+  date        DateTime         @default(now())
+  createdAt   DateTime         @default(now())
+  method      String?
+
+  household   Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  fromUser    User             @relation("SettlementFromUser", fields: [fromUserId], references: [id])
+  toUser      User             @relation("SettlementToUser", fields: [toUserId], references: [id])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  message   String   @db.Text
+  type      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ActivityLog {
+  id          Int      @id @default(autoincrement())
+  householdId Int
+  userId      Int
+  action      String
+  details     String   @db.Text
+  createdAt   DateTime @default(now())
+
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
