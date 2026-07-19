@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api`,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -50,7 +50,7 @@ api.interceptors.response.use(
 
       return new Promise((resolve, reject) => {
         axios
-          .post('/api/auth/refresh', {}, { withCredentials: true })
+          .post(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/refresh`, {}, { withCredentials: true })
           .then((res) => {
             const { accessToken } = res.data.data;
             api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
