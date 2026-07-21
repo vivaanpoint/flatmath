@@ -720,7 +720,7 @@ export const Expenses: React.FC = () => {
 
                     {part.checked && splitType !== 'EQUAL' && (
                       <div className="flex items-center gap-1.5">
-                        <span className="text-gray-400">{splitType === 'EXACT' ? '$' : '%'}</span>
+                        <span className="text-gray-400">{splitType === 'EXACT' ? '₹' : '%'}</span>
                         <input
                           type="number"
                           placeholder="0.00"
@@ -887,7 +887,7 @@ export const Expenses: React.FC = () => {
 
                     {part.checked && splitType !== 'EQUAL' && (
                       <div className="flex items-center gap-1.5">
-                        <span className="text-gray-400">{splitType === 'EXACT' ? '$' : '%'}</span>
+                        <span className="text-gray-400">{splitType === 'EXACT' ? '₹' : '%'}</span>
                         <input
                           type="number"
                           placeholder="0.00"

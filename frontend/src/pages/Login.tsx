@@ -15,14 +15,15 @@ export const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+
   const handleGoogleCredentialResponse = async (response: any) => {
     setIsLoading(true);
     try {
       const res = await api.post('/auth/google', { credential: response.credential });
-      const { user, accessToken } = res.data.data;
-      login(user, accessToken);
-      showToast('Welcome back, ' + user.name + '!', 'success');
-      navigate('/');
+      const { user: userData, accessToken } = res.data.data;
+      login(userData, accessToken);
+      showToast('Welcome back, ' + userData.name + '!', 'success');
+      navigate('/households');
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Google login failed. Please try again.';
       showToast(msg, 'error');
@@ -69,10 +70,10 @@ export const Login: React.FC = () => {
     setIsLoading(true);
     try {
       const res = await api.post('/auth/login', { email, password });
-      const { user, accessToken } = res.data.data;
-      login(user, accessToken);
-      showToast('Welcome back, ' + user.name + '!', 'success');
-      navigate('/');
+      const { user: userData, accessToken } = res.data.data;
+      login(userData, accessToken);
+      showToast('Welcome back, ' + userData.name + '!', 'success');
+      navigate('/households');
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Login failed. Please check your credentials.';
       showToast(msg, 'error');

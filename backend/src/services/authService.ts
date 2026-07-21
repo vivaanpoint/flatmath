@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
 export class AuthService {
   static async register(name: string, email: string, password: string) {
     const trimmedEmail = email.toLowerCase().trim();
-    
+
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { email: trimmedEmail },
@@ -142,7 +142,7 @@ export class AuthService {
       };
     } catch (err) {
       // Cleanup token on error
-      await prisma.refreshToken.delete({ where: { id: savedToken.id } }).catch(() => {});
+      await prisma.refreshToken.delete({ where: { id: savedToken.id } }).catch(() => { });
       throw new AppError('Invalid refresh token signature', 401);
     }
   }
@@ -161,12 +161,12 @@ export class AuthService {
       // Return success to avoid user enumeration, but don't do anything
       return { message: 'If the email exists in our system, a reset link/code has been generated.' };
     }
-    
+
     // In production, send email. For now, return a mock token for local testing
     // Generate a reset code that we can return or log
     const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
     console.log(`[PASSWORD RESET CODE FOR ${trimmedEmail}]: ${resetCode}`);
-    
+
     return {
       message: 'Password reset code logged to console.',
       testResetCode: resetCode, // Sending it back for easy testing
@@ -267,6 +267,246 @@ export class AuthService {
     // Save refresh token
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
+
+    await prisma.refreshToken.create({
+      data: {
+        token: refreshToken,
+        userId: user.id,
+        expiresAt,
+      },
+    });
+
+    return {
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+      },
+      accessToken,
+      refreshToken,
+    };
+  }
+
+  static async demoLogin() {
+    const demoEmail = 'demo@flatmath.io';
+    let user = await prisma.user.findUnique({
+      where: { email: demoEmail },
+    });
+
+    const createDemoDataForUser = async (userId: number) => {
+      // Create a household
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+      const inviteCode = `DEMO${randomSuffix}`;
+      const household = await prisma.household.create({
+        data: {
+          name: 'Apartment 4B (Demo)',
+          inviteCode,
+          ownerId: userId,
+        },
+      });
+
+      // Join owner as Member
+      await prisma.member.create({
+        data: {
+          userId,
+          householdId: household.id,
+          role: 'OWNER',
+          status: 'ACTIVE',
+        },
+      });
+
+      // Add two mock roommate users
+      const roommate1Email = `yuvraj.demo${randomSuffix}@flatmath.io`;
+      const roommate2Email = `bhavesh.demo${randomSuffix}@flatmath.io`;
+      const saltRounds = 10;
+      const roommatePasswordHash = await bcrypt.hash('roomiepass', saltRounds);
+
+      const roommate1 = await prisma.user.create({
+        data: {
+          name: 'Yuvraj',
+          email: roommate1Email,
+          passwordHash: roommatePasswordHash,
+        },
+      });
+
+      const roommate2 = await prisma.user.create({
+        data: {
+          name: 'Bhavesh',
+          email: roommate2Email,
+          passwordHash: roommatePasswordHash,
+        },
+      });
+
+      // Join roommates as Members
+      await prisma.member.create({
+        data: {
+          userId: roommate1.id,
+          householdId: household.id,
+          role: 'MEMBER',
+          status: 'ACTIVE',
+        },
+      });
+
+      await prisma.member.create({
+        data: {
+          userId: roommate2.id,
+          householdId: household.id,
+          role: 'MEMBER',
+          status: 'ACTIVE',
+        },
+      });
+
+      // Helper to fetch category or create it
+      const getCategory = async (name: string) => {
+        let cat = await prisma.category.findUnique({ where: { name } });
+        if (!cat) {
+          cat = await prisma.category.create({ data: { name } });
+        }
+        return cat;
+      };
+
+      const foodCat = await getCategory('Food');
+      const internetCat = await getCategory('Internet');
+
+      // Create expenses
+      // 1. Wi-Fi (Paid by Demo User, ₹300)
+      const exp1 = await prisma.expense.create({
+        data: {
+          title: 'Wi-Fi',
+          amount: 300,
+          categoryId: internetCat.id,
+          paidById: userId,
+          householdId: household.id,
+          status: 'APPROVED',
+          date: new Date(),
+        },
+      });
+
+      await prisma.expenseParticipant.createMany({
+        data: [
+          { expenseId: exp1.id, userId: userId, amountOwed: 100, sharePercentage: 33.33, shareAmount: 100 },
+          { expenseId: exp1.id, userId: roommate1.id, amountOwed: 100, sharePercentage: 33.33, shareAmount: 100 },
+          { expenseId: exp1.id, userId: roommate2.id, amountOwed: 100, sharePercentage: 33.33, shareAmount: 100 },
+        ],
+      });
+
+      await prisma.expenseApproval.createMany({
+        data: [
+          { expenseId: exp1.id, userId: roommate1.id, status: 'APPROVED' },
+          { expenseId: exp1.id, userId: roommate2.id, status: 'APPROVED' },
+        ],
+      });
+
+      // 2. Banana (Paid by Yuvraj, ₹50)
+      const exp2 = await prisma.expense.create({
+        data: {
+          title: 'Banana',
+          amount: 50,
+          categoryId: foodCat.id,
+          paidById: roommate1.id,
+          householdId: household.id,
+          status: 'PENDING',
+          date: new Date(Date.now() - 24 * 60 * 60 * 1000),
+        },
+      });
+
+      await prisma.expenseParticipant.createMany({
+        data: [
+          { expenseId: exp2.id, userId: userId, amountOwed: 16.67, sharePercentage: 33.33, shareAmount: 16.67 },
+          { expenseId: exp2.id, userId: roommate1.id, amountOwed: 16.67, sharePercentage: 33.33, shareAmount: 16.67 },
+          { expenseId: exp2.id, userId: roommate2.id, amountOwed: 16.66, sharePercentage: 33.33, shareAmount: 16.66 },
+        ],
+      });
+
+      await prisma.expenseApproval.createMany({
+        data: [
+          { expenseId: exp2.id, userId: userId, status: 'APPROVED' },
+          { expenseId: exp2.id, userId: roommate2.id, status: 'PENDING' },
+        ],
+      });
+
+      // 3. Bhujia (Paid by Bhavesh, ₹110)
+      const exp3 = await prisma.expense.create({
+        data: {
+          title: 'Bhujia',
+          amount: 110,
+          categoryId: foodCat.id,
+          paidById: roommate2.id,
+          householdId: household.id,
+          status: 'APPROVED',
+          date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+        },
+      });
+
+      await prisma.expenseParticipant.createMany({
+        data: [
+          { expenseId: exp3.id, userId: userId, amountOwed: 55, sharePercentage: 50, shareAmount: 55 },
+          { expenseId: exp3.id, userId: roommate1.id, amountOwed: 33, sharePercentage: 30, shareAmount: 33 },
+          { expenseId: exp3.id, userId: roommate2.id, amountOwed: 22, sharePercentage: 20, shareAmount: 22 },
+        ],
+      });
+
+      await prisma.expenseApproval.createMany({
+        data: [
+          { expenseId: exp3.id, userId: userId, status: 'APPROVED' },
+          { expenseId: exp3.id, userId: roommate1.id, status: 'APPROVED' },
+        ],
+      });
+
+      // Seed Activity Logs
+      await prisma.activityLog.createMany({
+        data: [
+          {
+            householdId: household.id,
+            userId,
+            action: 'CREATE_EXPENSE',
+            details: `Added expense 'Wi-Fi' for ₹300.`,
+          },
+          {
+            householdId: household.id,
+            userId: roommate1.id,
+            action: 'CREATE_EXPENSE',
+            details: `Added expense 'Banana' for ₹50.`,
+          },
+          {
+            householdId: household.id,
+            userId: roommate2.id,
+            action: 'CREATE_EXPENSE',
+            details: `Added expense 'Bhujia' for ₹110.`,
+          },
+        ],
+      });
+    };
+
+    if (!user) {
+      const passwordHash = await bcrypt.hash('demopassword', 10);
+      user = await prisma.user.create({
+        data: {
+          name: 'vivaan',
+          email: demoEmail,
+          passwordHash,
+        },
+      });
+      await createDemoDataForUser(user.id);
+    } else {
+      // Clear out old households owned by the demo user to refresh their demo workspace
+      const oldHouseholds = await prisma.household.findMany({
+        where: { ownerId: user.id },
+      });
+      for (const oh of oldHouseholds) {
+        await prisma.household.delete({
+          where: { id: oh.id },
+        });
+      }
+      await createDemoDataForUser(user.id);
+    }
+
+    const accessToken = generateAccessToken(user.id, user.email);
+    const refreshToken = generateRefreshToken(user.id);
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
 
     await prisma.refreshToken.create({
       data: {

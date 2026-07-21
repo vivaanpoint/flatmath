@@ -9,6 +9,7 @@ export const Register: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
 
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

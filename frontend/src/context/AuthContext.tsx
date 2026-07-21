@@ -34,6 +34,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(userData);
     setAccessToken(token);
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    // Clear any stale household from a previous session
+    setHouseholdId(null);
+    localStorage.removeItem('active_household_id');
+    delete api.defaults.headers.common['x-household-id'];
   };
 
   const logout = async () => {

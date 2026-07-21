@@ -220,4 +220,30 @@ export class AuthController {
       return next(err);
     }
   }
+
+  static async demoLogin(_req: AuthenticatedRequest, res: Response, next: NextFunction) {
+    try {
+      const result = await AuthService.demoLogin();
+      
+      // Set secure cookie for refresh token
+      res.cookie('refreshToken', result.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Demo login successful',
+        data: {
+          user: result.user,
+          accessToken: result.accessToken,
+          refreshToken: result.refreshToken,
+        },
+      });
+    } catch (err) {
+      return next(err);
+    }
+  }
 }

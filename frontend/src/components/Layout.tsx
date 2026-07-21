@@ -47,7 +47,7 @@ export const Layout: React.FC = () => {
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const navigationItems = [
-    { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Expenses', path: '/expenses', icon: Receipt, requiresHousehold: true },
     { name: 'Balances', path: '/balances', icon: Scale, requiresHousehold: true },
     { name: 'Recurring Expenses', path: '/recurring', icon: RefreshCw, requiresHousehold: true },
@@ -62,7 +62,7 @@ export const Layout: React.FC = () => {
     } else if (value) {
       selectHousehold(parseInt(value, 10));
       // Reload active queries
-      navigate('/');
+      navigate('/dashboard');
     } else {
       selectHousehold(null);
       navigate('/households');

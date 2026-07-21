@@ -33,7 +33,7 @@ export const HouseholdSelector: React.FC = () => {
   const handleSelect = (id: number) => {
     selectHousehold(id);
     showToast('Switched to active household', 'success');
-    navigate('/');
+    navigate('/dashboard');
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -46,7 +46,7 @@ export const HouseholdSelector: React.FC = () => {
         onSuccess: (newHh) => {
           showToast(`Household '${newHh.name}' created successfully!`, 'success');
           selectHousehold(newHh.id);
-          navigate('/');
+          navigate('/dashboard');
         },
         onError: (err: any) => {
           const msg = err.response?.data?.message || 'Failed to create household';
@@ -66,7 +66,7 @@ export const HouseholdSelector: React.FC = () => {
         onSuccess: (hh) => {
           showToast(`Joined household '${hh.name}'!`, 'success');
           selectHousehold(hh.id);
-          navigate('/');
+          navigate('/dashboard');
         },
         onError: (err: any) => {
           const msg = err.response?.data?.message || 'Invalid or expired invite code';

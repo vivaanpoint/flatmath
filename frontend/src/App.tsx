@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 
 // Auth Pages
+import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
@@ -22,6 +23,7 @@ export const App: React.FC = () => {
     <BrowserRouter>
       <Routes>
         {/* Public Routes */}
+        <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -34,7 +36,7 @@ export const App: React.FC = () => {
         {/* Protected Routes with Household Requirement */}
         <Route element={<ProtectedRoute requireHousehold={true} />}>
           <Route element={<Layout />}>
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/expenses" element={<Expenses />} />
             <Route path="/balances" element={<Balances />} />
             <Route path="/recurring" element={<RecurringRules />} />
@@ -44,7 +46,7 @@ export const App: React.FC = () => {
         </Route>
 
         {/* Catch-all Redirect */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
   );
