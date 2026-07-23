@@ -37,8 +37,10 @@ export const Expenses: React.FC = () => {
   const getReceiptUrl = (url: string | null | undefined) => {
     if (!url) return '';
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-    return `${baseUrl}${url}`;
+    let baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    baseUrl = baseUrl.replace(/\/api\/?$/, ''); // Strip /api suffix if present
+    const cleanUrl = url.startsWith('/') ? url : `/${url}`;
+    return `${baseUrl}${cleanUrl}`;
   };
 
   // Filters & State

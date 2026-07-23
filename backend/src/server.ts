@@ -5,10 +5,13 @@ import rateLimit from 'express-rate-limit';
 import path from 'path';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
+import { PrismaClient } from '@prisma/client';
 import { initSocket } from './utils/socket';
 
 // Load environment variables
 dotenv.config();
+
+const prisma = new PrismaClient();
 
 import authRoutes from './routes/authRoutes';
 import householdRoutes from './routes/householdRoutes';
@@ -64,8 +67,10 @@ app.use((req: any, _res, next) => {
   next();
 });
 
-// Serve Static Uploads (Receipts)
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Serve Static Uploads (Receipts) - mounted on both /uploads and /api/uploads
+const uploadsPath = path.join(__dirname, '../uploads');
+app.use('/uploads', express.static(uploadsPath));
+app.use('/api/uploads', express.static(uploadsPath));
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -99,6 +104,31 @@ const startRecurringBillsScheduler = () => {
   }, 60 * 60 * 1000);
 };
 
+// Database Keep-Alive Ping (Prevents cloud database idle power-off on free tiers like Aiven)
+const startDatabaseKeepAlive = () => {
+  console.log('Initializing database keep-alive ping (every 10 minutes)...');
+  
+  // Initial Ping
+  prisma.$queryRaw`SELECT 1`
+    .then(() => {
+      console.log('Initial DB keep-alive ping successful.');
+    })
+    .catch((err) => {
+      console.error('Initial DB keep-alive ping failed:', err.message);
+    });
+
+  // Schedule Ping every 10 minutes
+  setInterval(() => {
+    prisma.$queryRaw`SELECT 1`
+      .then(() => {
+        console.log(`[${new Date().toISOString()}] Database keep-alive ping successful.`);
+      })
+      .catch((err) => {
+        console.error(`[${new Date().toISOString()}] Database keep-alive ping failed:`, err.message);
+      });
+  }, 10 * 60 * 1000);
+};
+
 // Start Server
 const httpServer = createServer(app);
 initSocket(httpServer, process.env.FRONTEND_URL || 'http://localhost:5173');
@@ -106,4 +136,6 @@ initSocket(httpServer, process.env.FRONTEND_URL || 'http://localhost:5173');
 httpServer.listen(PORT, () => {
   console.log(`Server started successfully on port ${PORT} in ${process.env.NODE_ENV} mode.`);
   startRecurringBillsScheduler();
+  startDatabaseKeepAlive();
 });
+
